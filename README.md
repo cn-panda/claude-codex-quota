@@ -7,6 +7,7 @@
 
 <p align="center">
   <img src="docs/screenshot.png" width="430" alt="QuotaCard 桌面卡片" />
+  <p></p>
   <img src="docs/menu.png" width="320" alt="右键菜单" />
 </p>
 
