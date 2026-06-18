@@ -1,0 +1,16 @@
+# 构建产物
+QuotaCard.app/
+build/
+dist/
+*.o
+
+# 临时图标产物
+icon_*.png
+*.iconset/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store
