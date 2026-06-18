@@ -52,6 +52,41 @@ bash install.sh
 
 默认 **直连**；若访问 claude.ai 需要代理，右键 → 代理 → 自定义（如 `127.0.0.1:7890`）。
 
+## 常见问题
+
+**打开提示「已损坏」或「无法打开，来自身份不明的开发者」？**
+本工具未做苹果签名 / 公证。用 `install.sh` 安装会自动处理；若是手动拷贝的 `.app`，执行一次：
+```bash
+xattr -dr com.apple.quarantine /Applications/QuotaCard.app
+```
+或右键 app → 打开 → 仍要打开。
+
+**Claude 一直显示「上次成功」或 Cloudflare 错误？**
+claude.ai 会间歇性挑战非浏览器请求。多点几次右键「立即刷新」通常就过了，并确保 Chrome / Firefox 已登录 claude.ai。严格期会自行缓解。
+
+**Claude 显示「未读到 cookie / 登录失效」？**
+在 Chrome 或 Firefox 登录 [claude.ai](https://claude.ai)。首次抓取会弹系统钥匙串授权（读取浏览器 cookie），点「始终允许」。
+
+**Codex 数据很旧 / 显示「本地 · N 小时前」？**
+Codex 额度读自本地 `~/.codex/sessions`，只在你**用 Codex CLI** 时更新，且**不含 Codex Cloud（网页）用量**——这是数据源本身的限制。
+
+**切到全屏 app 后卡片不见了？**
+设计如此：卡片只在**桌面 Space** 显示，不跟进全屏 app、不遮挡前台。回到主桌面即可见。
+
+**卡片贴在了某个 app 上 / 绑错了桌面？**
+在「主桌面」打开它（不要在全屏 app 的 Space 里打开）。退出后回到桌面重新打开即可。
+
+**拖不动？**
+拖卡片**中间** = 移动，拖**边或角** = 缩放。想让它始终在最前方便操作，右键 →「窗口置顶」。
+
+**更新到新版本？**
+```bash
+cd claude-codex-quota && git pull && bash install.sh
+```
+
+**卸载？**
+退出卡片后删除：`/Applications/QuotaCard.app`、`~/Library/Application Support/QuotaCard`，以及（若开过开机自启）`~/Library/LaunchAgents/net.cnpanda.quota-card.plist`。
+
 ## 工作原理
 
 抓取脚本 `fetch.py`（随 app 打包到 `Contents/Resources/`，由独立 venv 运行）：
