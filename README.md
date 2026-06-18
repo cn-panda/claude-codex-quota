@@ -5,7 +5,9 @@
 
 纯 Swift + AppKit，单文件、无第三方框架；数据由随附的独立 Python 脚本在本机抓取。**不上传任何数据**，只读你本机已有的浏览器登录态和本地日志。
 
-![screenshot](docs/screenshot.png) <!-- 自行替换截图 -->
+<p align="center">
+  <img src="docs/screenshot.png" width="430" alt="QuotaCard 桌面卡片" />
+</p>
 
 ## 特性
 
@@ -43,6 +45,10 @@ bash install.sh
 | 拖卡片中间 | 移动 |
 | 拖边 / 角 | 缩放（内容等比适配） |
 | 右键 | 菜单：立即刷新 / 刷新间隔 / 代理 / 开机自启 / 窗口置顶 / 重置大小位置 / 退出 |
+
+<p align="center">
+  <img src="docs/menu.png" width="320" alt="右键菜单" />
+</p>
 
 默认 **直连**；若访问 claude.ai 需要代理，右键 → 代理 → 自定义（如 `127.0.0.1:7890`）。
 
