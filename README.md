@@ -6,8 +6,8 @@
 纯 Swift + AppKit，单文件、无第三方框架；数据由随附的独立 Python 脚本在本机抓取。**不上传任何数据**，只读你本机已有的浏览器登录态和本地日志。
 
 <p align="center">
-  <img src="docs/screenshot.png" width="430" alt="QuotaCard 桌面卡片" />
-  <p></p>
+  <img src="docs/screenshot.png" width="430" alt="QuotaCard 桌面卡片" />      
+
   <img src="docs/menu.png" width="320" alt="右键菜单" />
 </p>
 
