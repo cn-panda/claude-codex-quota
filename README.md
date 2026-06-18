@@ -7,6 +7,7 @@
 
 <p align="center">
   <img src="docs/screenshot.png" width="430" alt="QuotaCard 桌面卡片" />
+  <img src="docs/menu.png" width="320" alt="右键菜单" />
 </p>
 
 ## 特性
@@ -46,9 +47,7 @@ bash install.sh
 | 拖边 / 角 | 缩放（内容等比适配） |
 | 右键 | 菜单：立即刷新 / 刷新间隔 / 代理 / 开机自启 / 窗口置顶 / 重置大小位置 / 退出 |
 
-<p align="center">
-  <img src="docs/menu.png" width="320" alt="右键菜单" />
-</p>
+
 
 默认 **直连**；若访问 claude.ai 需要代理，右键 → 代理 → 自定义（如 `127.0.0.1:7890`）。
 
