@@ -19,6 +19,10 @@ SUPPORT = pathlib.Path.home() / "Library" / "Application Support" / "QuotaCard"
 LAST = SUPPORT / "last.json"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+# curl_cffi 的 TLS/JA3 指纹版本。实测「chrome」(最新, ~chrome136) 的指纹会被
+# claude.ai / chatgpt.com 的 Cloudflare 间歇性挑战（~17% 通过）；而「chrome124」
+# 稳定通过（12/12）。可用 AI_LIMIT_IMPERSONATE 覆盖。
+IMPERSONATE = os.environ.get("AI_LIMIT_IMPERSONATE", "chrome124")
 
 
 def _http_get(url, headers, timeout=TIMEOUT):
@@ -31,7 +35,7 @@ def _http_get(url, headers, timeout=TIMEOUT):
     if creq is not None:
         h = dict(headers)
         h.pop("User-Agent", None)
-        r = creq.get(url, headers=h, proxies=proxies, impersonate="chrome", timeout=timeout)
+        r = creq.get(url, headers=h, proxies=proxies, impersonate=IMPERSONATE, timeout=timeout)
         return r.status_code, (lambda n, d=None: r.headers.get(n, d)), r.content
     import urllib.request
     import urllib.error
@@ -218,11 +222,72 @@ def _codex_snapshot():
             "plan": best_rl.get("plan_type"), "stale": stale}
 
 
+def _chatgpt_headers(cookie_header, bearer=None):
+    h = {"Cookie": cookie_header, "Accept": "application/json",
+         "Accept-Language": "en-US,en;q=0.9",
+         "Referer": "https://chatgpt.com/codex/cloud/settings/analytics",
+         "Origin": "https://chatgpt.com", "User-Agent": UA,
+         "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors",
+         "Sec-Fetch-Site": "same-origin"}
+    if bearer:
+        h["Authorization"] = f"Bearer {bearer}"
+    return h
+
+
+def fetch_codex_web():
+    """chatgpt.com 实时合并用量（Cloud + CLI），与 `codex /status` 一致。
+    只读分析接口，不会触发新的 5h 窗口。被 Cloudflare 拦或未登录则返回 error，交由上层回退本地。"""
+    cookies = _cookies_for(".chatgpt.com")
+    if not cookies:
+        return {"error": "未读到 chatgpt.com cookie"}
+    ch = "; ".join(f"{n}={v}" for n, v in cookies)
+    # 1) 用 cookie 换 access token
+    st, gh, body = _get_retry("https://chatgpt.com/api/auth/session", _chatgpt_headers(ch))
+    if st >= 400:
+        return {"error": "chatgpt.com 触发 Cloudflare 验证" if _looks_cf(gh, body) else f"session HTTP {st}"}
+    try:
+        token = json.loads(body).get("accessToken")
+    except Exception:
+        token = None
+    if not token:
+        return {"error": "chatgpt.com 未登录"}
+    # 2) 拉取用量
+    st, gh, body = _get_retry("https://chatgpt.com/backend-api/codex/usage",
+                              _chatgpt_headers(ch, bearer=token))
+    if st >= 400:
+        if _looks_cf(gh, body):
+            return {"error": "chatgpt.com 触发 Cloudflare 验证"}
+        if st in (401, 403):
+            return {"error": "chatgpt.com 登录失效或无 Codex 权限"}
+        return {"error": f"usage HTTP {st}"}
+    try:
+        data = json.loads(body)
+    except Exception:
+        return {"error": "非 JSON 响应"}
+    rl = data.get("rate_limit") or {}
+    p = rl.get("primary_window") or {}
+    s = rl.get("secondary_window") or {}
+
+    def left(w):
+        return int(round(100 - float(w.get("used_percent", 0)))) if w else None
+
+    if left(p) is None and left(s) is None:
+        return {"error": "无用量数据"}
+    return {"5h_left": left(p), "7d_left": left(s),
+            "5h_reset": p.get("reset_at"), "7d_reset": s.get("reset_at"),
+            "5h_note": None, "7d_note": None,
+            "plan": data.get("plan_type"), "stale": ""}   # 空 stale → 卡片显示「实时」
+
+
 def fetch_codex():
+    # 实时 web 优先（合并 Cloud+CLI，与 codex /status 一致）；被 CF 拦/未登录再回退本地快照
+    web = fetch_codex_web()
+    if not web.get("error") and (web.get("7d_left") is not None or web.get("5h_left") is not None):
+        return web
     snap = _codex_snapshot()
     if snap:
         return snap
-    return {"error": "未找到本地快照（先用一次 codex CLI）"}
+    return web if web.get("error") else {"error": "未找到本地快照（先用一次 codex CLI）"}
 
 
 def _load_last():
