@@ -149,8 +149,11 @@ def fetch_claude():
 def _codex_snapshot():
     if not CODEX_BASE.exists():
         return None
-    files = sorted(CODEX_BASE.rglob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
-    best_ts, best_rl = None, None
+    files = sorted(CODEX_BASE.rglob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:8]
+    # 按 limit_id 分桶，各取最新一条。实验模型（如 GPT-5.x-Codex-Spark，limit_id
+    # "codex_bengalfox"）有独立配额，往往恰好是时间最新的记录，会把读数污染成 0% 已用
+    # → 100% 剩余。codex /status 展示的是主账号桶 limit_id == "codex"，故优先它。
+    buckets = {}  # limit_id -> (ts_str, rate_limits)
     for jf in files:
         try:
             with open(jf, "rb") as f:
@@ -158,29 +161,33 @@ def _codex_snapshot():
                 size = f.tell()
                 f.seek(max(0, size - 512 * 1024))
                 tail = f.read().decode(errors="replace")
-            for line in reversed(tail.splitlines()):
-                if '"token_count"' not in line or '"rate_limits"' not in line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    continue
-                if rec.get("type") != "event_msg":
-                    continue
-                pl = rec.get("payload") or {}
-                if pl.get("type") != "token_count":
-                    continue
-                rl = pl.get("rate_limits")
-                if not rl:
-                    continue
-                ts = rec.get("timestamp", "")
-                if best_ts is None or ts > best_ts:
-                    best_ts, best_rl = ts, rl
-                break
         except Exception:
             continue
-    if not best_rl:
+        for line in tail.splitlines():
+            if '"token_count"' not in line or '"rate_limits"' not in line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if rec.get("type") != "event_msg":
+                continue
+            pl = rec.get("payload") or {}
+            if pl.get("type") != "token_count":
+                continue
+            rl = pl.get("rate_limits")
+            if not rl:
+                continue
+            lid = rl.get("limit_id") or ""
+            ts = rec.get("timestamp", "")
+            if lid not in buckets or ts > buckets[lid][0]:
+                buckets[lid] = (ts, rl)
+    if not buckets:
         return None
+    if "codex" in buckets:
+        best_ts, best_rl = buckets["codex"]
+    else:
+        best_ts, best_rl = max(buckets.values(), key=lambda x: x[0])
     p = best_rl.get("primary") or {}
     s = best_rl.get("secondary") or {}
     stale = ""
